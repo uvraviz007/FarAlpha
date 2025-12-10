@@ -1,58 +1,19 @@
-# Flask + MongoDB Application on Kubernetes (Minikube Deployment Guide)
+# Flask + MongoDB on Kubernetes (Minikube Deployment)
 
-This project demonstrates how to deploy a Python Flask API connected to a MongoDB database on a Kubernetes cluster.  
-The application exposes two endpoints:
+This project deploys a Python Flask API connected to a MongoDB database on a Kubernetes cluster using Minikube.
 
-- `/` → Returns a welcome message with the current timestamp  
+---
+
+## 1. Application Endpoints
+
+- `/` → Returns welcome message + current time  
 - `/data`
-  - **POST** → Insert JSON data into MongoDB  
-  - **GET** → Retrieve all MongoDB documents  
-
-The setup includes Deployments, StatefulSets, Services, Persistent Volumes, Secrets, and Horizontal Pod Autoscaling.
+  - **POST** → Insert JSON  
+  - **GET** → Fetch all documents  
 
 ---
 
-# 1. Architecture Overview
-
-The complete system consists of:
-
-- **Flask Application Deployment**  
-  Runs two replicas of the API server.
-
-- **MongoDB StatefulSet**  
-  Provides stable storage and authentication-enabled database.
-
-- **Persistent Volume (PV) & Persistent Volume Claim (PVC)**  
-  Ensures MongoDB data persists even if pods restart.
-
-- **Kubernetes Secrets**  
-  Stores MongoDB username and password securely.
-
-- **Services**  
-  - Flask: NodePort for external access  
-  - MongoDB: ClusterIP for internal access only  
-
-- **Horizontal Pod Autoscaler (HPA)**  
-  Scales the Flask Deployment between 2–5 replicas based on CPU usage.
-
----
-
-# 2. Prerequisites
-
-Ensure the following tools are installed:
-
-- Docker Desktop  
-- Minikube  
-- kubectl  
-- Python 3.8+ (optional for local testing)
-
-Your Docker Hub username used in this project: **uvraviz26**
-
----
-
-# 3. Docker Build & Push Instructions
-
-Inside the project folder:
+## 2. Docker Build & Push
 
 ```bash
 docker build -t uvraviz26/flask-mongo-app:v1 .
@@ -62,14 +23,9 @@ docker push uvraviz26/flask-mongo-app:v1
 
 ---
 
-# 4. Kubernetes Deployment Files
+## 3. Kubernetes Files (Place inside `k8s/` folder)
 
-All YAML files should be stored in a `k8s/` directory.
-
----
-
-## 4.1 MongoDB Credentials (Secret)
-
+### 3.1 Secret  
 `mongo-secret.yaml`
 
 ```yaml
@@ -83,15 +39,9 @@ data:
   password: bW5nb3Bhc3M=
 ```
 
-Apply:
-```bash
-kubectl apply -f mongo-secret.yaml
-```
-
 ---
 
-## 4.2 Persistent Volume & Persistent Volume Claim
-
+### 3.2 PV & PVC  
 `mongo-pv-pvc.yaml`
 
 ```yaml
@@ -120,15 +70,9 @@ spec:
       storage: 1Gi
 ```
 
-Apply:
-```bash
-kubectl apply -f mongo-pv-pvc.yaml
-```
-
 ---
 
-## 4.3 MongoDB StatefulSet
-
+### 3.3 MongoDB StatefulSet  
 `mongo-statefulset.yaml`
 
 ```yaml
@@ -150,8 +94,6 @@ spec:
       containers:
         - name: mongo
           image: mongo:latest
-          ports:
-            - containerPort: 27017
           env:
             - name: MONGO_INITDB_ROOT_USERNAME
               valueFrom:
@@ -172,15 +114,9 @@ spec:
             claimName: mongo-pvc
 ```
 
-Apply:
-```bash
-kubectl apply -f mongo-statefulset.yaml
-```
-
 ---
 
-## 4.4 MongoDB Service (Internal Only)
-
+### 3.4 MongoDB Service  
 `mongo-service.yaml`
 
 ```yaml
@@ -194,18 +130,11 @@ spec:
     app: mongo
   ports:
     - port: 27017
-      targetPort: 27017
-```
-
-Apply:
-```bash
-kubectl apply -f mongo-service.yaml
 ```
 
 ---
 
-## 4.5 Flask Application Deployment
-
+### 3.5 Flask Deployment  
 `flask-deployment.yaml`
 
 ```yaml
@@ -226,8 +155,6 @@ spec:
       containers:
         - name: flask-app
           image: uvraviz26/flask-mongo-app:v1
-          ports:
-            - containerPort: 5000
           env:
             - name: MONGO_USER
               valueFrom:
@@ -241,24 +168,13 @@ spec:
                   key: password
             - name: MONGO_HOST
               value: mongo-service
-          resources:
-            requests:
-              cpu: "0.2"
-              memory: "250Mi"
-            limits:
-              cpu: "0.5"
-              memory: "500Mi"
-```
-
-Apply:
-```bash
-kubectl apply -f flask-deployment.yaml
+          ports:
+            - containerPort: 5000
 ```
 
 ---
 
-## 4.6 Flask Service (External Access)
-
+### 3.6 Flask Service  
 `flask-service.yaml`
 
 ```yaml
@@ -276,15 +192,9 @@ spec:
       nodePort: 30080
 ```
 
-Apply:
-```bash
-kubectl apply -f flask-service.yaml
-```
-
 ---
 
-## 4.7 Horizontal Pod Autoscaler
-
+### 3.7 Horizontal Pod Autoscaler  
 `flask-hpa.yaml`
 
 ```yaml
@@ -308,23 +218,31 @@ spec:
           averageUtilization: 70
 ```
 
-Apply:
+---
+
+## 4. Deploy All Kubernetes Components
+
 ```bash
+kubectl apply -f mongo-secret.yaml
+kubectl apply -f mongo-pv-pvc.yaml
+kubectl apply -f mongo-statefulset.yaml
+kubectl apply -f mongo-service.yaml
+kubectl apply -f flask-deployment.yaml
+kubectl apply -f flask-service.yaml
 kubectl apply -f flask-hpa.yaml
 ```
 
 ---
 
-# 5. Accessing the Flask Application
+## 5. Accessing the Application
 
-Windows cannot access Minikube NodePort directly.  
-Use Minikube's built-in service proxy:
+Use:
 
 ```bash
 minikube service flask-service --url
 ```
 
-This provides a reachable URL such as:
+This returns a URL like:
 
 ```
 http://127.0.0.1:52296
@@ -334,83 +252,55 @@ Open it in a browser or Postman.
 
 ---
 
-# 6. DNS Resolution in Kubernetes
+## 6. DNS Resolution (Short Explanation)
 
-Kubernetes includes an internal DNS service (CoreDNS) that allows pods and services to communicate using names instead of IP addresses.
-
-Every service gets a DNS name:
+Kubernetes assigns each Service an internal DNS name:
 
 ```
 <service-name>.<namespace>.svc.cluster.local
 ```
 
-In this setup:
+The Flask app connects to MongoDB using:
 
-- Flask connects to MongoDB using the hostname `mongo-service`
-- CoreDNS resolves this name to the MongoDB ClusterIP  
-- Even if pod IPs change, service discovery remains stable  
-
-This ensures reliable inter-pod communication inside the cluster.
-
----
-
-# 7. Resource Requests & Limits Explanation
-
-### **Resource Requests**
-Minimum guaranteed CPU/memory for a pod.  
-The scheduler uses them to decide which node the pod fits on.
-
-### **Resource Limits**
-Defines the maximum CPU/memory a container is allowed to use.
-
-### **Chosen configuration:**
-
-| Resource | Request | Limit |
-|---------|---------|--------|
-| CPU     | 0.2     | 0.5    |
-| Memory  | 250Mi   | 500Mi  |
-
-These values ensure reliable performance while preventing resource exhaustion.
-
----
-
-# 8. Horizontal Pod Autoscaler Testing
-
-To test autoscaling, generate CPU load on the Flask endpoint:
-
-Example using `hey`:
-
-```bash
-hey -z 60s -c 30 http://127.0.0.1:52296/
+```
+mongo-service
 ```
 
-Monitor autoscaling:
+CoreDNS resolves this name to the correct MongoDB pod IP.
+
+---
+
+## 7. Resource Requests & Limits (Short Explanation)
+
+- **Requests** = minimum guaranteed resources  
+- **Limits** = maximum allowed resource usage  
+
+Used configuration:
+
+| Resource | Request | Limit |
+|----------|---------|--------|
+| CPU | 0.2 | 0.5 |
+| Memory | 250Mi | 500Mi |
+
+---
+
+## 8. Autoscaling Test (Short)
+
+Run load:
+
+```bash
+hey -z 60s -c 30 <flask_url>
+```
+
+Check autoscaler:
 
 ```bash
 kubectl get hpa
 kubectl get pods
 ```
 
-As CPU usage rises above 70%, HPA increases replicas up to a maximum of 5.
+Pods scale between **2 → 5** based on CPU usage.
 
 ---
 
-# 9. Design Choices
-
-- **StatefulSet for MongoDB** → Stable identity and persistent storage  
-- **ClusterIP for MongoDB** → Database is internal-only for security  
-- **NodePort for Flask** → Allows external access during development  
-- **Secrets for authentication** → Prevents hard-coding credentials  
-- **Persistent Volume** → MongoDB data survives pod restarts  
-- **Autoscaler** → Automatically adjusts capacity based on load  
-
----
-
-# 10. Conclusion
-
-This project demonstrates a complete microservice-style deployment on Kubernetes, including persistent storage, scaling, networking, and secure configuration management.  
-The setup follows production-ready principles while remaining simple enough for learning and testing.
-
----
-
-# ✔ End of README.md
+# End of README.md
