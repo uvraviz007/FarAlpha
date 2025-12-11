@@ -453,17 +453,14 @@ Add this markdown block in README where you want to show results:
 ### Initial HPA Status
 ![initial hpa](screenshots/initial_hpa.png)
 
-### Pods Scaling Up Under Load
-![pods scale up](screenshots/after_pod.png)
+### Pods Scaling Up During Load Test
+![pods scale up](screenshots/load.png)
 
-### HPA Scaling Up (High CPU)
+### HPA Scaling Up Under High Load
 ![hpa scale up](screenshots/after_hpa.png)
 
-<!-- ### Pods Scaling Down
-![pods scale down](screenshots/5-pods-scale-down.png)
-
-### HPA Back to Normal
-![hpa scale down](screenshots/6-hpa-scale-down.png) -->
+### Pods Scaling Down After Load
+![pods scale down](screenshots/after_pod.png)
 ```
 
 ---
@@ -483,3 +480,4 @@ If you want, I will now:
 - Produce the **short captions** to place under each screenshot.
 
 Tell me which one you want next and I will produce it immediately.
+
